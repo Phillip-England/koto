@@ -1,5 +1,8 @@
 #include <stdlib.h>
 
+#include "kbool.h"
+#include "kstr.h"
+
 size_t kstr_utf8_char_length(unsigned char byte) {
     if ((byte & 0x80) == 0x00) {
         return 1;
@@ -14,50 +17,86 @@ size_t kstr_utf8_char_length(unsigned char byte) {
     }
 }
 
-struct kstr {
-    size_t length;
-    char *string;
-    size_t position;
-};
-
-typedef struct kstr kstr;
-
 size_t kstr_pos(kstr *s) {
     return s->position;
 }
 
-size_t kstr_at_start(kstr *s) {
+kbool kstr_at_start(kstr *s) {
     if (s->position == 0) {
-        return 1;
+        return KTRUE;
     }
-    return 0;
+    return KFALSE;
 }
 
-size_t kstr_at_end(kstr *s) {
-    return s->position >= s->length;
+kbool kstr_at_end(kstr *s) {
+    if (s->position >= s->byte_count) {
+        return KTRUE;
+    }
+    return KFALSE;
 }
 
 void kstr_goto_end(kstr *s) {
-    s->position = s->length-1;
+    while (kstr_at_end(s) == KFALSE) {
+        kstr_next(s);
+    }
 }
+
 
 void kstr_goto_start(kstr *s) {
     s->position = 0;
 }
 
-size_t kstr_out_of_bounds(kstr *s) {
-    if (s->position > s->length-1) {
-        return 1;
+kbool kstr_out_of_bounds(kstr *s) {
+    if (s->position > s->byte_count-1) {
+        return KTRUE;
     }
-    return 0;
+    return KFALSE;
 }
 
 unsigned char kstr_last_char(kstr *s) {
-    if (s->length == 0) {
+    if (s->byte_count == 0) {
         return s->string[0];
     }
-    return s->string[s->length-1];
+    return s->string[s->byte_count-1];
 }
+
+void kstr_goto_pos(kstr *s, size_t pos) {
+    if (pos > s->byte_count) {
+        kstr_goto_end(s);
+        return;
+    }
+    s->position = pos;
+}
+
+size_t kstr_char_count(kstr *s) {
+    size_t start = kstr_pos(s);
+    kstr_goto_start(s);
+    size_t count = 0;
+    while (kstr_at_end(s) == KFALSE) {
+        kstr_next(s);
+        count += 1;
+    }
+    kstr_goto_pos(s, start);
+    return count;
+}
+
+unsigned char kstr_char(kstr *s) {
+    if (kstr_out_of_bounds(s) == KTRUE) {
+        return 0;
+    }
+    unsigned char c = s->string[s->position];
+    return c;
+}
+
+
+void kstr_next(kstr *s) {
+    size_t char_len = kstr_utf8_char_length(kstr_char(s));
+    s->position = s->position + char_len;
+    if (kstr_out_of_bounds(s) == KTRUE) {
+        kstr_goto_end(s);
+    }
+}
+
 
 kstr *kstr_new(char *str) {
     size_t str_len = strlen(str);
@@ -65,28 +104,17 @@ kstr *kstr_new(char *str) {
     if (!s) {
         return NULL;
     }
-    s->length = str_len+1;
+    s->byte_count = str_len+1;
     s->string = strdup(str);
     s->position = 0;
     if (kstr_last_char(s) != 0x00) {
         printf("KSTR: attempted to create a heap-allocated kstr, but the input is not null-terminated\n");
         return NULL;
     }
+    s->char_count = kstr_char_count(s);
     return s;
 }
 
-unsigned char kstr_char(kstr *s) {
-    unsigned char c = s->string[s->position];
-    return c;
-}
-
-void kstr_next(kstr *s) {
-    size_t char_len = kstr_utf8_char_length(kstr_char(s));
-    s->position = s->position + char_len;
-    if (kstr_out_of_bounds(s)) {
-        kstr_goto_end(s);
-    }
-}
 
 void kstr_next_by(kstr *s, size_t by) {
     size_t count = 0;
@@ -120,8 +148,8 @@ void kstr_prev_by(kstr *s, size_t by) {
 }
 
 kstr *kstr_from_rng(kstr *s, size_t start, size_t end) {
-    if (end > s->length-1) {
-        end = s->length-1;
+    if (end > s->byte_count-1) {
+        end = s->byte_count-1;
     }
     if (start > end) {
         start = end;
@@ -158,18 +186,19 @@ kstr *kstr_from_end(kstr *s) {
         kstr *out = kstr_new(buffer);
         return out;
     }
-    size_t len = s->length;
-    char *buffer = malloc(len+1);
-    memcpy(buffer, &s->string[s->position], len);
-    buffer[len] = '\0';
+    size_t byte_count = s->byte_count;
+    char *buffer = malloc(byte_count+1);
+    memcpy(buffer, &s->string[s->position], byte_count);
+    buffer[byte_count] = '\0';
     return kstr_new(buffer);
 }
 
 void kstr_dbg(kstr *s) {
     printf("DEBUGGING: kstr\n");
-    printf("LENGTH: %ld\n", s->length);
+    printf("BYTE COUNT: %ld\n", s->byte_count);
+    printf("CHAR COUNT: %ld\n", s->char_count);
     printf("POSITION: %ld\n", s->position);
-    printf("MESSAGE: %s\n", s->string);
+    printf("STRING: %s\n", s->string);
     printf("CHAR: %c\n", kstr_char(s));
 }
 
