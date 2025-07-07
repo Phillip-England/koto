@@ -3,8 +3,8 @@
 #define KBOOL_H
 
 typedef enum {
-    KTRUE,
-    KFALSE,
+    KFALSE = 0,
+    KTRUE = 1,
 } kbool;
 
 #endif
