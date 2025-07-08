@@ -7,20 +7,38 @@ typedef struct {
     size_t line;
     char *file;
     char *message;
-    size_t code;
 } kerr;
 
-kerr kerr_new(char *message, size_t code, char* file, size_t line) {
+kerr kerr_onstack(char *message, char* file, size_t line) {
     kerr err;
     err.message = message;
     err.file = file;
     err.line = line;
-    err.code = code;
     return err;
 }
 
+kerr *kerr_onheap(char *message, char* file, size_t line) {
+    kerr *err = malloc(sizeof(kerr));
+    err->file = strdup(file);
+    err->line = line;
+    err->message = strdup(message);
+    return err;
+}
+
+void kerr_free(kerr *err) {
+    if (err) {
+        if (err->message) {
+            free(err->message);
+        }
+        if (err->file) {
+            free(err->file);
+        }
+        free(err);
+    }
+}
+
 kbool kerr_is_empty(kerr err) {
-    if (strcmp(err.message, "") == 0 && err.code == 0) {
+    if (strcmp(err.message, "")) {
         return KTRUE;
     }
     return KFALSE;
@@ -30,11 +48,12 @@ void kerr_dbg(kerr err) {
     printf("🚨 (%s %ld) %s\n", err.file, err.line, err.message);
 }
 
-#define KERR_NEW(message, code) kerr_new(message, code, __FILE__, __LINE__)
+#define KERR_ONSTACK(message) kerr_onstack(message, __FILE__, __LINE__)
+#define KERR_ONHEAP(message) kerr_onheap(message, __FILE__, __LINE__)
 
 #define KERR_PANIC(message) \
     do { \
-        kerr kerr_panic_queen = KERR_NEW(message, 0); \
+        kerr kerr_panic_queen = KERR_ONSTACK(message); \
         kerr_dbg(kerr_panic_queen); \
         printf("💣 PANICKING! SHUTTING DOWN..\n"); \
         exit(EXIT_FAILURE); \
@@ -44,42 +63,45 @@ void kerr_dbg(kerr err) {
         
 
 typedef struct {
-    kerr err;
+    void *err;
     void *data;
 } kout;
 
 kout kout_ok(void *data) {
     kout out;
     out.data = data;
-    out.err = KERR_NEW("", 0);
+    out.err = NULL;
     return out;
 }
 
 kbool kout_is_err(kout out) {
-    if (out.data == NULL && !kerr_is_empty(out.err)) {
+    if (out.err) {
         return KTRUE;
     }
     return KFALSE;
 }
 
-kout kout_err(kerr err) {
+kout kout_fail(void *err) {
     kout out;
     out.data = NULL;
     out.err = err;
     return out;
 }
 
-kerr kout_err_unwrap(kout out) {
-    if (!kout_is_err(out)) {
+void *kout_err(kout out) {
+    if (kout_is_err(out) == KFALSE) {
         KERR_PANIC("KOUT: attempted to unwrap an error when no error exists");
     }
     return out.err;
 }
 
-void *kout_data_unwrap(kout out) {
+void *kout_data(kout out) {
     if (kout_is_err(out)) {
         KERR_PANIC("KOUT: attempted to unwrap data when no data exists");
     }
     return out.data;
 }
+
+#define KOUT_OK(void_data) kout_ok((void *)void_data);
+#define KOUT_FAIL(void_err) kout_fail((void *)void_err);
 

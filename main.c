@@ -11,36 +11,35 @@
 void test_kerr(void) {
 
     // testing basic comparison
-    kerr err = kerr_new("some err", 0, __FILE__, __LINE__);
+    kerr err = kerr_onstack("some err", __FILE__, __LINE__);
     if (strcmp(err.message, "some err\0") != 0) {
         KERR_PANIC_TEST_FAILURE();
     }
 
     // testing macro generation
-    kerr err_again = KERR_NEW("another err", 0);
+    kerr err_again = KERR_ONSTACK("another err");
     if (strcmp(err_again.message, "another err\0") != 0) {
         KERR_PANIC_TEST_FAILURE();
     }
 
     // testing kout in error state
-    kout out = kout_err(KERR_NEW("a test error", 0));
-    if (!kout_is_err(out)) {
+    kout out = KOUT_FAIL(KERR_ONHEAP("a test error"));
+    if (kout_is_err(out) == KFALSE) {
         KERR_PANIC_TEST_FAILURE();
     }
-    kerr out_err = kout_err_unwrap(out);
-    if (strcmp(out_err.message, "a test error\0") != 0) {
+    kerr *out_err = kout_err(out);
+    if (strcmp(out_err->message, "a test error\0") != 0) {
         KERR_PANIC_TEST_FAILURE();
     }
+    kerr_free(out_err);
 
     // testing kout in data state
-    int *num = malloc(sizeof(int));
-    num = 2;
-    // kout another_out = kout_ok((void *)num);
-    // int *num_unwrapped = (int *)kout_data_unwrap(another_out);
-    // if (*num_unwrapped != 2) {
-    //     KERR_PANIC_TEST_FAILURE();
-    // }
-
+    kout another_out = KOUT_OK(KERR_ONHEAP("fake err"));
+    kerr *fake_err = kout_data(another_out);
+    if (strcmp(fake_err->message, "fake err\0") != 0) {
+        KERR_PANIC_TEST_FAILURE();
+    }
+    kerr_free(fake_err);
 
 }
 
