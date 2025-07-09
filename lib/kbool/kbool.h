@@ -1,4 +1,5 @@
 
+/// kbool.h - represent true and false values
 #ifndef KBOOL_H
 #define KBOOL_H
 

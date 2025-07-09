@@ -5,7 +5,8 @@
 #include "kstr.h"
 #include "kbg.h"
 #include "kbool.h"
-#include "kerr.c"
+#include "kerr.h"
+#include "kout.h"
 
 
 void test_kerr(void) {
@@ -27,7 +28,7 @@ void test_kerr(void) {
     if (kout_is_err(out) == KFALSE) {
         KERR_PANIC_TEST_FAILURE();
     }
-    kerr *out_err = kout_err(out);
+    kerr *out_err = kout_get_err(out);
     if (strcmp(out_err->message, "a test error\0") != 0) {
         KERR_PANIC_TEST_FAILURE();
     }
@@ -35,7 +36,7 @@ void test_kerr(void) {
 
     // testing kout in data state
     kout another_out = KOUT_OK(KERR_ONHEAP("fake err"));
-    kerr *fake_err = kout_data(another_out);
+    kerr *fake_err = kout_get_data(another_out);
     if (strcmp(fake_err->message, "fake err\0") != 0) {
         KERR_PANIC_TEST_FAILURE();
     }

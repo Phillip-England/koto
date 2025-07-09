@@ -80,14 +80,6 @@ size_t kstr_char_count(kstr *s) {
     return count;
 }
 
-unsigned char kstr_char(kstr *s) {
-    if (kstr_out_of_bounds(s) == KTRUE) {
-        return 0;
-    }
-    unsigned char c = s->string[s->position];
-    return c;
-}
-
 
 void kstr_next(kstr *s) {
     size_t char_len = kstr_utf8_char_length(kstr_char(s));
@@ -97,8 +89,7 @@ void kstr_next(kstr *s) {
     }
 }
 
-
-kstr *kstr_new(char *str) {
+kstr *kstr_onheap(char *str) {
     size_t str_len = strlen(str);
     kstr *s = malloc(sizeof(kstr));
     if (!s) {
@@ -113,6 +104,26 @@ kstr *kstr_new(char *str) {
     }
     s->char_count = kstr_char_count(s);
     return s;
+}
+
+kstr kstr_onstack(char *str) {
+    size_t str_len = strlen(str);
+    kstr s;
+    s.byte_count = str_len+1;
+    s.string = strdup(str);
+    s.position = 0;
+    if (kstr_last_char(&s) != 0x00) {
+        printf("KSTR: attempted to create a stack-allocated kstr, but the input is not null-terminated\n");
+        printf("returning an empty kstr\n");
+        kstr out;
+        out.byte_count = 1;
+        out.char_count = 1;
+        out.position = 0;
+        out.string = '\0';
+        return out;
+    }
+    s.char_count = kstr_char_count(&s);
+    return s;  
 }
 
 
@@ -147,7 +158,7 @@ void kstr_prev_by(kstr *s, size_t by) {
     }
 }
 
-kstr *kstr_from_rng(kstr *s, size_t start, size_t end) {
+char *kstr_bytes_from_rng(kstr *s, size_t start, size_t end) {
     if (end > s->byte_count-1) {
         end = s->byte_count-1;
     }
@@ -161,11 +172,11 @@ kstr *kstr_from_rng(kstr *s, size_t start, size_t end) {
     }
     memcpy(buffer, &s->string[start], len);
     buffer[len] = '\0';
-    return kstr_new(buffer);
+    return buffer;
 }
 
 
-kstr *kstr_from_start(kstr *s) {
+char *kstr_bytes_from_start(kstr *s) {
     if (s->position == 0) {
         char *buffer = malloc(1);
         buffer[0] = '\0';
@@ -176,10 +187,10 @@ kstr *kstr_from_start(kstr *s) {
     char *buffer = malloc(len+1);
     memcpy(buffer, &s->string[0], len);
     buffer[len] = '\0';
-    return kstr_new(buffer);
+    return buffer;
 }
 
-kstr *kstr_from_end(kstr *s) {
+kstr *kstr_bytes_from_end(kstr *s) {
     if (kstr_at_end(s)) {
         char *buffer = malloc(1);
         buffer[0] = '\0';
@@ -190,7 +201,7 @@ kstr *kstr_from_end(kstr *s) {
     char *buffer = malloc(byte_count+1);
     memcpy(buffer, &s->string[s->position], byte_count);
     buffer[byte_count] = '\0';
-    return kstr_new(buffer);
+    return buffer;
 }
 
 void kstr_dbg(kstr *s) {

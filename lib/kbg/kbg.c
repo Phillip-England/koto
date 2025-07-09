@@ -12,7 +12,7 @@ void kbg_bin(unsigned char c) {
     printf("\n");
 }
 
-void kbg_char(unsigned char c) {
+void kbg_char(char c) {
     if (c == 0x00) {
         printf("CHAR: NULL TERMINATOR\n");
         return;
